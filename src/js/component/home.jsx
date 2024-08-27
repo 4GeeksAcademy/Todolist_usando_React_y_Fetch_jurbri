@@ -1,108 +1,130 @@
-import React, { useState,useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import User from "./user";
 
 const Home = () => {
-	const [inputValue, setInputValue] = useState("");
-	const [taskList, setTaskList] = useState([]);
-	const [key, setKey] = useState(null);
+    const [tareas, setTareas] = useState([]);
+    const [inputValue, setInputValue] = useState("");
+    const [user, setUser] = useState(null);
+    const [taskLength, setTaskLength] = useState(0);
 
-	const apiUrl = "https://assets.breatheco.de/apis/fake/todos/user/RicardoMiguelR";
+    useEffect(() => {
+        fetchUser();
+    }, []);
 
-	const getTodoList = async () => {
-		try {
-			let response = await fetch(apiUrl);
-			let data = await response.json();
-			setTaskList(data);
-		} catch (e) {
-			console.error(e);
-		}
-	};
+    const fetchUser = async () => {
+        try {
+            const response = await fetch("https://playground.4geeks.com/todo/users/jurbri");
+            if (response.ok) {
+                const userData = await response.json();
+                setUser(userData);
+                setTareas(userData.todos);
+                setTaskLength(userData.todos.length);
+            } else {
+                await createUser();
+            }
+        } catch (error) {
+            console.error("Error fetching user:", error);
+        }
+    };
 
-	const updateTodoList = async (newList) => {
-		try {
-			let response = await fetch(apiUrl, {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify(newList),
-			});
-			if (response.ok) {
-				setTaskList(newList);
-			}
-		} catch (e) {
-			console.error(e);
-		}
-	};
+    const createUser = async () => {
+        try {
+            const response = await fetch("https://playground.4geeks.com/todo/users/jurbri", {
+                method: 'POST'
+            });
+            if (response.ok) {
+                fetchUser();
+            }
+        } catch (error) {
+            console.error("Error creating user:", error);
+        }
+    };
 
-	const addTask = (value) => {
-		const newList = [...taskList, { label: value, done: false }];
-		updateTodoList(newList);
-		setInputValue("");
-	};
+    const handleInputChange = (e) => {
+        setInputValue(e.target.value);
+    };
 
-	const handleDeleteTask = (index) => {
-		const newList = taskList.filter((task, i) => i !== index);
-		updateTodoList(newList);
-	};
+    const handleKeyDown = async (e) => {
+        if (e.key === "Enter" && inputValue.trim()) {
+            await addTask(inputValue);
+            setInputValue("");
+        }
+    };
 
-	const clearTasks = () => {
-		const newList = [];
-		updateTodoList(newList);
-	};
+    const addTask = async (task) => {
+        try {
+            const response = await fetch("https://playground.4geeks.com/todo/todos/jurbri", {
+                method: "POST",
+                body: JSON.stringify({ label: task, is_done: false }),
+                headers: { "Content-Type": "application/json" }
+            });
+            if (response.ok) {
+                fetchUser();
+            }
+        } catch (error) {
+            console.error("Error adding task:", error);
+        }
+    };
 
-	useEffect(() => {
-		getTodoList();
-	}, []);
+    const deleteTask = async (id) => {
+        try {
+            const response = await fetch(`https://playground.4geeks.com/todo/todos/${id}`, {
+                method: "DELETE"
+            });
+            if (response.ok) {
+                fetchUser();
+            }
+        } catch (error) {
+            console.error("Error deleting task:", error);
+        }
+    };
 
-	return (
-		<div className="d-flex flex-column align-items-center">
-			<div className="todo-list w-25">
-				<div className="form-floating mb-3">
-					<input
-						value={inputValue}
-						type="text"
-						className="form-control"
-						id="floatingInput"
-						onChange={(e) => setInputValue(e.target.value)}
-						onKeyDown={(e) => {
-							if (e.key === "Enter" && inputValue !== "") {
-								addTask(inputValue);
-							}
-						}}
-					/>
-					<label htmlFor="floatingInput">Your task</label>
-				</div>
-				<ul className="list-group">
-					{taskList && taskList.length > 0 ? (
-						taskList.map((task, index) => (
-							<li
-								onMouseEnter={() => setKey(index)}
-								onMouseLeave={() => setKey(null)}
-								className="list-group-item"
-								key={index}
-							>
-								{task.label}
-								{key === index && (
-									<button
-										className="btn btn-dark btn-xxs m-2"
-										onClick={() => handleDeleteTask(index)}
-									>
-										<small className="text-danger">X</small>
-									</button>
-								)}
-							</li>
-						))
-					) : (
-						<h3>Agrega tus tareas</h3>
-					)}
-				</ul>
-				<small>{taskList.length + " items left"}</small>
-				<button className="btn btn-danger mt-3" onClick={clearTasks}>
-					Clear All Tasks
-				</button>
-			</div>
-		</div>
-	);
+    const clearTasks = async () => {
+        try {
+            const response = await fetch("https://playground.4geeks.com/todo/users/jurbri", {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                setTaskLength(0);
+                await createUser();
+            }
+        } catch (error) {
+            console.error("Error clearing tasks:", error);
+        }
+    };
+
+    return (
+        <div className="container">
+            <h1 className="my-4">TODOLIST</h1>
+            {user && <User name={user.name} />}
+            <div className="input-list-container">
+                <input
+                    className="form-control"
+                    type="text"
+                    onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
+                    value={inputValue}
+                    placeholder="No hay tareas, agregue alguna"
+                />
+                <ul className="list-container">
+                    {tareas.length === 0 ? (
+                        <li className="no-tasks">No hay tareas, agrega alguna</li>
+                    ) : (
+                        tareas.map((tarea) => (
+                            <li key={tarea.id} className="task">
+                                {tarea.label}
+                                <button onClick={() => deleteTask(tarea.id)} className="delete-button">
+                                    <i className="fas fa-trash-alt"></i>
+                                </button>
+                            </li>
+                        ))
+                    )}
+                </ul>
+            </div>
+            <div className="text-bold my-4 total">{taskLength} tasks</div>
+            <button onClick={clearTasks} className="btn btn-danger mt-4">Limpiar todas las tareas</button>
+        </div>
+    );
 };
 
 export default Home;
